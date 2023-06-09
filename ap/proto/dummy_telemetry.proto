@@ -1,0 +1,12 @@
+syntax = "proto3";
+option java_package = "com.example";
+option java_outer_classname = "DummyTelemetryProto";
+
+import "google/protobuf/timestamp.proto";
+
+message DummyTelemetry {
+  string id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}

@@ -1,0 +1,54 @@
+plugins {
+    id 'java'
+    id 'com.google.protobuf' version "0.8.17"
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+    implementation 'com.google.protobuf:protobuf-java:3.18.1'
+    implementation 'com.google.protobuf:protobuf-java-util:3.18.1'
+}
+
+protobuf {
+    // Configure the protoc executable
+    protoc {
+        // Download from repositories
+        artifact = 'com.google.protobuf:protoc:3.18.1'
+    }
+}
+
+sourceSets {
+    main {
+        proto{
+            srcDirs '../proto'
+        }
+        java {
+            srcDirs 'src/main/java'
+        }
+    }
+}
+
+
+task publish(type: JavaExec) {
+    group = "Execution"
+    description = "Run the simple example"
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'publish.PublishMain'
+}
+
+
+task subscribe(type: JavaExec) {
+    group = "Execution"
+    description = "Run the simple example"
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'subscribe.SubscribeMain'
+}

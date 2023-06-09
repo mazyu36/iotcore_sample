@@ -1,0 +1,16 @@
+syntax = "proto3";
+option java_package = "com.example";
+option java_outer_classname = "DummyCommandProto";
+
+import "google/protobuf/timestamp.proto";
+
+enum CommandType {
+  COMMAND_UNSPECIFIED = 0; // 0始まりなことに注意
+  START = 1;
+  STOP = 2;
+}
+
+message DummyCommand {
+  CommandType commandType = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
