@@ -8,6 +8,8 @@ import { aws_iam as iam } from 'aws-cdk-lib';
 import { aws_kinesis as kinesis } from 'aws-cdk-lib';
 import { aws_lambda_event_sources as event_sources } from 'aws-cdk-lib';
 import { aws_timestream as timestream } from 'aws-cdk-lib';
+import { aws_s3_deployment as s3deploy } from 'aws-cdk-lib';
+import { aws_s3 as s3 } from 'aws-cdk-lib';
 
 export class IotStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -17,44 +19,51 @@ export class IotStack extends cdk.Stack {
     const timestreamTableName = 'TelemetryTable'
 
 
-    // Lambda(Protobuf Deserializer)
-    const protobufLayer = new lambda.LayerVersion(this, 'ProtobufLayer', {
-      code: lambda.AssetCode.fromAsset('lambda/layer/protobuf'),
-      compatibleRuntimes: [lambda.Runtime.PYTHON_3_9],
-    });
+    // S3 Bucket
+    const fileDescriptorBucket = new s3.Bucket(this, 'FileDescriptorBucket', {
+      autoDeleteObjects: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      eventBridgeEnabled: true,
+    })
 
-    const protobufFunction = new lambda.Function(this, 'ProtobufFunction', {
-      functionName: 'proto-function',
-      runtime: lambda.Runtime.PYTHON_3_9,
-      code: lambda.Code.fromAsset('lambda/function'),
-      handler: 'protobuf.handler',
-      layers: [protobufLayer],
-      logRetention: logs.RetentionDays.ONE_DAY
-    });
+    new s3deploy.BucketDeployment(this, 'FileDescriptorDeploy', {
+      sources: [s3deploy.Source.asset("filedescriptor/")],
+      destinationBucket: fileDescriptorBucket,
+      destinationKeyPrefix: "msg/"
+    })
 
 
     // Kinesis Data Streams
     const stream = new kinesis.Stream(this, 'Streams', {})
 
+    const logGroup = new logs.LogGroup(this, 'Log Group', {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_DAY
+    })
+
     // IoT Topic Rule
     const topicRule = new iot.TopicRule(this, 'TopicRule', {
       topicRuleName: 'MqttTopicRule',
       description: 'invokes the lambda function',
-      sql: iot.IotSql.fromStringAsVer20160323(`SELECT aws_lambda('${protobufFunction.functionArn}',{'data': encode(*, 'base64')}) as payload FROM 'python/messages/#'`),
+      sql: iot.IotSql.fromStringAsVer20160323(`SELECT VALUE decode(*, 'proto', '${fileDescriptorBucket.bucketName}', 'msg/filedescriptor.desc', 'dummy_telemetry', 'DummyTelemetry') FROM 'python/messages/#'`),
       actions: [
         new actions.KinesisPutRecordAction(stream, {
           partitionKey: '${newuuid()}',
         })
-      ]
+      ],
+      errorAction: new actions.CloudWatchLogsAction(logGroup)
     });
 
-    // IoT Topic RuleからLambdaを呼び出す権限を付与
-    protobufFunction.addPermission(
-      'IoT Topic Rule Invocation', {
-      principal: new iam.ServicePrincipal('iot.amazonaws.com'),
-      action: 'lambda:InvokeFunction',
-      sourceArn: topicRule.topicRuleArn
-    }
+
+    fileDescriptorBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:Get*'],
+        resources: [
+          `${fileDescriptorBucket.bucketArn}/*`,
+          `${fileDescriptorBucket.bucketArn}`],
+        principals: [new iam.ServicePrincipal('iot.amazonaws.com')]
+      })
     )
 
     // Lambda(Kinesis Data Streamsから呼び出されるConsumer)
