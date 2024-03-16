@@ -17,8 +17,8 @@ AWS IoT Core, Amazon MQ等を使用してMQTTでメッセージを送受信す�
 ```
 
 ## 実行方法
-- パブリッシャー: `python publisher.py --client_id <client_id> --broker_type <broker_type> `
-- サブスクライバー: `python subscriber.py --client_id --broker_type <broker_type>`
+- パブリッシャー: `python publisher.py --client_name <client_id> --broker_type <broker_type> `
+- サブスクライバー: `python subscriber.py --client_name --broker_type <broker_type>`
 - broker_typeは以下の3つを指定
   - `localhost`：ローカルで起動したMosquittoブローカーを使用。クライアント証明書で認証を行う。
   - `iotcore`：AWS IoT Coreと接続する場合。クライアント証明書で認証を行う。
